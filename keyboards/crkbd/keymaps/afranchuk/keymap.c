@@ -140,24 +140,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 layer_off(_ADJUST);
             }
             return false;
-        case RGB_MOD:
-#ifdef RGBLIGHT_ENABLE
-            if (record->event.pressed) {
-                rgblight_mode(RGB_current_mode);
-                rgblight_step();
-                RGB_current_mode = rgblight_config.mode;
-            }
-#endif
-            return false;
-        case RGBRST:
-#ifdef RGBLIGHT_ENABLE
-            if (record->event.pressed) {
-                eeconfig_update_rgblight_default();
-                rgblight_enable();
-                RGB_current_mode = rgblight_config.mode;
-            }
-#endif
-            break;
     }
     return true;
 }

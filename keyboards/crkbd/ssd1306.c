@@ -86,6 +86,8 @@ done:
 
 #define SEND_CMDS(...) {static const uint8_t _cmds[] PROGMEM = { __VA_ARGS__,0 };send_cmds(_cmds);}
 
+struct CharacterMatrix display;
+
 static void clear_display(void) {
   matrix_clear(&display);
 

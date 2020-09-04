@@ -16,19 +16,68 @@ extern uint8_t is_master;
 #define _RAISE 2
 #define _ADJUST 3
 
-enum custom_keycodes { QWERTY = SAFE_RANGE, LOWER, RAISE, ADJUST, BACKLIT, RGBRST };
+typedef enum {
+    SINGLE_TAP,
+    SINGLE_HOLD,
+} td_state_t;
 
-enum macro_keycodes {
-    KC_SAMPLEMACRO,
+static td_state_t td_state;
+
+int cur_dance(qk_tap_dance_state_t *state) {
+    if (state->count == 1) {
+        if (!state->pressed) {
+            return SINGLE_TAP;
+        } else {
+            return SINGLE_HOLD;
+        }
+    } else {
+        return 2;
+    }
 };
 
-const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
-	[_QWERTY] = LAYOUT_split_3x6_3(KC_TAB, KC_Q, KC_W, KC_E, KC_R, KC_T, KC_Y, KC_U, KC_I, KC_O, KC_P, KC_BSPC, LCTL_T(KC_ESC), KC_A, KC_S, KC_D, KC_F, KC_G, KC_H, KC_J, KC_K, KC_L, KC_SCLN, KC_QUOT, KC_LSFT, KC_Z, KC_X, KC_C, KC_V, KC_B, KC_N, KC_M, KC_COMM, KC_DOT, KC_SLSH, KC_DQUO, KC_LGUI, MO(1), KC_SPC, KC_ENT, MO(2), KC_RALT),
-	[_LOWER] = LAYOUT_split_3x6_3(KC_ESC, KC_F1, KC_F2, KC_F3, KC_F4, KC_NO, KC_HOME, KC_PGDN, KC_PGUP, KC_END, KC_NO, KC_PSCR, KC_LCTL, KC_F5, KC_F6, KC_F7, KC_F8, KC_NO, KC_LEFT, KC_DOWN, KC_UP, KC_RGHT, KC_NO, KC_SLCK, KC_LSFT, KC_F9, KC_F10, KC_F11, KC_F12, KC_NO, KC_DEL, KC_INS, KC_NO, KC_NO, KC_NO, KC_PAUS, KC_LGUI, KC_TRNS, KC_SPC, KC_ENT, MO(3), KC_RALT),
-	[_RAISE] = LAYOUT_split_3x6_3(KC_ESC, KC_PLUS, KC_MINS, KC_EXLM, KC_LCBR, KC_GRV, KC_DLR, KC_RCBR, KC_7, KC_8, KC_9, KC_BSPC, KC_LCTL, KC_ASTR, KC_SLSH, KC_CIRC, KC_LPRN, KC_UNDS, KC_EQL, KC_RPRN, KC_4, KC_5, KC_6, KC_0, KC_AT, KC_PERC, KC_AMPR, KC_PIPE, KC_LBRC, KC_BSLS, KC_TILD, KC_RBRC, KC_1, KC_2, KC_3, KC_HASH, KC_LGUI, MO(3), KC_SPC, KC_ENT, KC_TRNS, KC_RALT),
-	[_ADJUST] = LAYOUT_split_3x6_3(KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, RESET, EEP_RST, KC_NO, KC_NO, KC_NO, KC_NO, RGB_TOG, RGB_HUI, RGB_SAI, RGB_VAI, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, RGB_MOD, RGB_HUD, RGB_SAD, RGB_VAD, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_LGUI, KC_TRNS, KC_SPC, KC_ENT, KC_TRNS, KC_RALT)
+enum tab_dance_codes {
+    CTRLSHIFT,
+    CTRLALT,
+    CTRLGUI
 };
 
+void tap_ctrl_finished(qk_tap_dance_state_t *state, void *user_data) {
+    td_state = cur_dance(state);
+    uint8_t mod_bit = MOD_BIT(state->keycode == TD(CTRLSHIFT) ? KC_LSHIFT : state->keycode == TD(CTRLALT) ? KC_RALT : KC_LGUI);
+    switch (td_state) {
+        case SINGLE_TAP:
+            set_oneshot_mods(MOD_BIT(KC_LCTRL) | mod_bit);
+            break;
+        case SINGLE_HOLD:
+            register_mods(mod_bit);
+            break;
+    }
+};
+
+void tap_ctrl_reset(qk_tap_dance_state_t *state, void *user_data) {
+    uint8_t mod_bit = MOD_BIT(state->keycode == TD(CTRLSHIFT) ? KC_LSHIFT : state->keycode == TD(CTRLALT) ? KC_RALT : KC_LGUI);
+    switch (td_state) {
+        case SINGLE_TAP:
+            //clear_oneshot_mods();
+            break;
+        case SINGLE_HOLD:
+            unregister_mods(mod_bit);
+            break;
+    }
+};
+
+qk_tap_dance_action_t tap_dance_actions[] = {
+    [CTRLSHIFT] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, tap_ctrl_finished, tap_ctrl_reset),
+    [CTRLALT] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, tap_ctrl_finished, tap_ctrl_reset),
+    [CTRLGUI] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, tap_ctrl_finished, tap_ctrl_reset),
+};
+
+enum custom_keycodes { QWERTY = SAFE_RANGE, LOWER, RAISE, ADJUST };
+
+const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {[0] = LAYOUT_split_3x6_3(KC_ESC, KC_Q, KC_W, KC_E, KC_R, KC_T, KC_Y, KC_U, KC_I, KC_O, KC_P, KC_BSPC, TD(CTRLSHIFT), KC_A, KC_S, KC_D, KC_F, KC_G, KC_H, KC_J, KC_K, KC_L, KC_SCLN, KC_QUOT, KC_LCTL, KC_Z, KC_X, KC_C, KC_V, KC_B, KC_N, KC_M, KC_COMM, KC_DOT, KC_SLSH, KC_DQUO, TD(CTRLGUI), MO(1), KC_SPC, KC_ENT, MO(2), TD(CTRLALT)),
+                                                              [1] = LAYOUT_split_3x6_3(KC_ESC, KC_F1, KC_F2, KC_F3, KC_F4, KC_NO, KC_HOME, KC_PGDN, KC_PGUP, KC_END, KC_NO, KC_PSCR, TD(CTRLSHIFT), KC_F5, KC_F6, KC_F7, KC_F8, KC_NO, KC_LEFT, KC_DOWN, KC_UP, KC_RGHT, KC_NO, KC_SLCK, KC_LCTL, KC_F9, KC_F10, KC_F11, KC_F12, KC_NO, KC_DEL, KC_INS, KC_NO, KC_NO, KC_NO, KC_PAUS, TD(CTRLGUI), KC_TRNS, KC_SPC, KC_ENT, MO(3), TD(CTRLALT)),
+                                                              [2] = LAYOUT_split_3x6_3(KC_ESC, KC_PLUS, KC_MINS, KC_EXLM, KC_UNDS, KC_LCBR, KC_RCBR, KC_7, KC_8, KC_9, KC_HASH, KC_BSPC, KC_AT, KC_ASTR, KC_SLSH, KC_CIRC, KC_EQL, KC_LPRN, KC_RPRN, KC_4, KC_5, KC_6, KC_TILD, KC_DLR, KC_LCTL, KC_PERC, KC_AMPR, KC_PIPE, KC_GRV, KC_LBRC, KC_RBRC, KC_1, KC_2, KC_3, KC_0, KC_BSLS, TD(CTRLGUI), MO(3), KC_SPC, KC_ENT, KC_TRNS, TD(CTRLALT)),
+                                                              [3] = LAYOUT_split_3x6_3(KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, RESET, EEP_RST, KC_NO, KC_NO, KC_NO, KC_NO, RGB_TOG, RGB_HUI, RGB_SAI, RGB_VAI, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, RGB_MOD, RGB_HUD, RGB_SAD, RGB_VAD, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_TRNS, KC_NO, KC_NO, KC_TRNS, KC_NO)};
 
 int RGB_current_mode;
 
@@ -141,6 +190,26 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 layer_off(_ADJUST);
             }
             return false;
+        case KC_SPACE: {
+            static uint8_t kc;
+
+            if (record->event.pressed) {
+                bool isShifted = get_mods() & MOD_BIT(KC_LSHIFT);
+                if (isShifted) {
+                    del_mods(MOD_BIT(KC_LSHIFT));
+                    kc = KC_TAB;
+                } else {
+                    kc = KC_SPACE;
+                }
+                register_code(kc);
+                if (isShifted) {
+                    add_mods(MOD_BIT(KC_LSHIFT));
+                }
+            } else {
+                unregister_code(kc);
+            }
+            return false;
+        }
     }
     return true;
 }
